@@ -1,0 +1,5 @@
+.env
+
+*.code-workspace
+
+docs/
