@@ -49,6 +49,7 @@ func main() {
 		authenticated.POST("/logout", authEndpoint.Logout)
 		authenticated.POST("/reset-password", authEndpoint.ResetPassword)
 		authenticated.GET("/completions", authEndpoint.GetCurrentUser)
+		authenticated.GET("/me", authEndpoint.GetCurrentUser)
 
 		reflectionChats := authenticated.Group("/reflections")
 		{
