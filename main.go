@@ -10,6 +10,7 @@ import (
 	"github.com/somtojf/trio-server/aipi/googlegenai"
 	"github.com/somtojf/trio-server/aipi/openai"
 	"github.com/somtojf/trio-server/controllers/auth"
+	basicchat "github.com/somtojf/trio-server/controllers/basic-chat"
 	"github.com/somtojf/trio-server/initializers"
 	authcheck "github.com/somtojf/trio-server/middleware/auth-check"
 )
@@ -30,6 +31,7 @@ func main() {
 
 	authCheckMiddleware := authcheck.NewMiddleware(initializers.DB)
 	authEndpoint := auth.NewEndpoint(initializers.DB)
+	basicChatEndpoint := basicchat.NewEndpoint(initializers.DB)
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{clientAddress}
@@ -65,8 +67,10 @@ func main() {
 
 		basicChats := authenticated.Group("/basic-chats")
 		{
-			basicChats.GET("/")
-			basicChats.POST("/")
+			basicChats.GET("/", basicChatEndpoint.GetBasicChats)
+			basicChats.POST("/", basicChatEndpoint.CreateBasicChat)
+			basicChats.PUT("/:id", basicChatEndpoint.UpdateBasicChat)
+			basicChats.DELETE("/:id", basicChatEndpoint.DeleteBasicChat)
 		}
 
 	}
