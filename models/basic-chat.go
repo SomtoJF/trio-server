@@ -10,6 +10,8 @@ import (
 type BasicChat struct {
 	IdBasicChat uint           `gorm:"primaryKey;column:id_basic_chat;autoIncrement" json:"-"`
 	ExternalID  uuid.UUID      `gorm:"unique;type:uuid;default:gen_random_uuid()" json:"id"`
+	ChatName    string         `gorm:"column:chat_name"`
+	ChatAgents  []BasicAgent   `gorm:"foreignKey:ChatID"`
 	UserID      uint           `gorm:"column:user_id"`
 	User        User           `gorm:"foreignKey:UserID"`
 	Messages    []BasicMessage `gorm:"foreignKey:ChatID"`
