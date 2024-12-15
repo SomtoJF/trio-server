@@ -11,6 +11,7 @@ import (
 	"github.com/somtojf/trio-server/aipi/openai"
 	"github.com/somtojf/trio-server/controllers/auth"
 	basicchat "github.com/somtojf/trio-server/controllers/basic-chat"
+	reflectionchat "github.com/somtojf/trio-server/controllers/reflection-chat"
 	"github.com/somtojf/trio-server/initializers"
 	authcheck "github.com/somtojf/trio-server/middleware/auth-check"
 )
@@ -32,7 +33,7 @@ func main() {
 	authCheckMiddleware := authcheck.NewMiddleware(initializers.DB)
 	authEndpoint := auth.NewEndpoint(initializers.DB)
 	basicChatEndpoint := basicchat.NewEndpoint(initializers.DB)
-
+	reflectionChatEndpoint := reflectionchat.NewEndpoint(initializers.DB)
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{clientAddress}
 	config.AllowCredentials = true
@@ -59,10 +60,11 @@ func main() {
 		authenticated.GET("/completions", authEndpoint.GetCurrentUser)
 		authenticated.GET("/me", authEndpoint.GetCurrentUser)
 
-		reflectionChats := authenticated.Group("/reflections")
+		reflectionChats := authenticated.Group("/reflection-chats")
 		{
-			reflectionChats.GET("/")
-			reflectionChats.POST("/")
+			reflectionChats.GET("/", reflectionChatEndpoint.GetReflectionChats)
+			reflectionChats.POST("/", reflectionChatEndpoint.CreateReflectionChat)
+			reflectionChats.DELETE("/:id", reflectionChatEndpoint.DeleteReflectionChat)
 		}
 
 		basicChats := authenticated.Group("/basic-chats")
