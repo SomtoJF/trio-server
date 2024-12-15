@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/somtojf/trio-server/aipi/googlegenai"
+	"github.com/somtojf/trio-server/aipi/openai"
 	"github.com/somtojf/trio-server/controllers/auth"
 	"github.com/somtojf/trio-server/initializers"
 	authcheck "github.com/somtojf/trio-server/middleware/auth-check"
@@ -16,6 +19,9 @@ func init() {
 	initializers.LoadEnvVariables()
 	initializers.ConnectToPostgresDB()
 	initializers.ConnectToQdrant()
+
+	openai.CreateClient()
+	googlegenai.CreateClient(context.Background())
 }
 
 func main() {
