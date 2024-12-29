@@ -2,15 +2,17 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/somtojf/trio-server/aipi/googlegenai"
-	"github.com/somtojf/trio-server/aipi/openai"
+	"github.com/somtojf/trio-server/common"
 	"github.com/somtojf/trio-server/controllers/auth"
 	basicchat "github.com/somtojf/trio-server/controllers/basic-chat"
+	basicmessage "github.com/somtojf/trio-server/controllers/basic-chat/basic-message"
 	reflectionchat "github.com/somtojf/trio-server/controllers/reflection-chat"
 	"github.com/somtojf/trio-server/initializers"
 	authcheck "github.com/somtojf/trio-server/middleware/auth-check"
@@ -22,7 +24,6 @@ func init() {
 	initializers.ConnectToPostgresDB()
 	initializers.ConnectToQdrant()
 
-	openai.CreateClient()
 	googlegenai.CreateClient(context.Background())
 }
 
@@ -34,6 +35,14 @@ func main() {
 	authEndpoint := auth.NewEndpoint(initializers.DB)
 	basicChatEndpoint := basicchat.NewEndpoint(initializers.DB)
 	reflectionChatEndpoint := reflectionchat.NewEndpoint(initializers.DB)
+
+	deps, err := common.NewDependencies(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	basicMessageEndpoint := basicmessage.NewEndpoint(initializers.DB, deps.AIPIProvider)
+
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{clientAddress}
 	config.AllowCredentials = true
@@ -73,6 +82,8 @@ func main() {
 			basicChats.POST("/", basicChatEndpoint.CreateBasicChat)
 			basicChats.PUT("/:id", basicChatEndpoint.UpdateBasicChat)
 			basicChats.DELETE("/:id", basicChatEndpoint.DeleteBasicChat)
+			basicChats.POST("/:id/messages") // POST basic chat message
+			basicChats.GET("/:id/messages", basicMessageEndpoint.GetBasicMessages)
 		}
 
 	}
