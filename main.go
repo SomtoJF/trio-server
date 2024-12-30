@@ -82,7 +82,7 @@ func main() {
 			basicChats.POST("/", basicChatEndpoint.CreateBasicChat)
 			basicChats.PUT("/:id", basicChatEndpoint.UpdateBasicChat)
 			basicChats.DELETE("/:id", basicChatEndpoint.DeleteBasicChat)
-			basicChats.POST("/:id/messages") // POST basic chat message
+			basicChats.POST("/:id/messages", basicMessageEndpoint.SendBasicMessage)
 			basicChats.GET("/:id/messages", basicMessageEndpoint.GetBasicMessages)
 		}
 
