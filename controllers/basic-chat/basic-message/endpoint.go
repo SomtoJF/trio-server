@@ -172,7 +172,7 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 		}
 
 		response := response.NewResponse(e.db, e.aipi)
-		data, err := response.Run(c.Request.Context(), infoBank)
+		data, err := response.Run(c.Request.Context(), infoBank, string(openai.GPT4o))
 		if err != nil {
 			e.streamError(c, fmt.Sprintf("Agent %s response error: %s", agent.AgentName, err.Error()))
 			return

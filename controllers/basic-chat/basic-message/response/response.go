@@ -1,10 +1,15 @@
 package response
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"html/template"
+	"log"
 	"time"
 
 	"github.com/somtojf/trio-server/aipi"
+	"github.com/somtojf/trio-server/aipi/aipitypes"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +46,40 @@ func NewResponse(db *gorm.DB, aipi *aipi.Provider) *Response {
 	return &Response{db: db, aipi: aipi}
 }
 
-func (r *Response) Run(ctx context.Context, infoBank InfoBank) (RunResponse, error) {
+func (r *Response) Run(ctx context.Context, infoBank InfoBank, model string) (RunResponse, error) {
+	systemTmpl, err := template.ParseFiles("controllers/basic-chat/basic-message/response/prompt/system/prompt.go.tmpl")
+	if err != nil {
+		log.Printf("Error parsing system template: %v", err)
+		return RunResponse{}, fmt.Errorf("error parsing system template: %w", err)
+	}
+	var systemBuf bytes.Buffer
+	if err := systemTmpl.Execute(&systemBuf, infoBank); err != nil {
+		log.Printf("Error executing system template: %v", err)
+		return RunResponse{}, fmt.Errorf("error executing system template: %w", err)
+	}
 
-	return RunResponse{}, nil
+	userTmpl, err := template.ParseFiles("controllers/basic-chat/basic-message/response/prompt/user/prompt.go.tmpl")
+	if err != nil {
+		log.Printf("Error parsing user template: %v", err)
+		return RunResponse{}, fmt.Errorf("error parsing user template: %w", err)
+	}
+	var userBuf bytes.Buffer
+	if err := userTmpl.Execute(&userBuf, infoBank); err != nil {
+		log.Printf("Error executing user template: %v", err)
+		return RunResponse{}, fmt.Errorf("error executing user template: %w", err)
+	}
+
+	request := &aipitypes.AIPIRequest{
+		Model:         model,
+		SystemMessage: systemBuf.String(),
+		UserMessage:   userBuf.String(),
+
+		// TODO: Add user info so that AIPI can log responses
+	}
+	response, err := r.aipi.GetCompletion(ctx, *request)
+	if err != nil {
+		return RunResponse{}, err
+	}
+
+	return RunResponse{Content: response.Data}, nil
 }
