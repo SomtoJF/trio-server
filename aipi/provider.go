@@ -27,6 +27,7 @@ func NewProvider(genaiClient *genai.Client, openaiClient *openai.Client) *Provid
 type AIPIClient interface {
 	GetCompletion(ctx context.Context, request aipitypes.AIPIRequest) (aipitypes.AIPIResponse, error)
 	GetCompletionAsync(ctx context.Context, request aipitypes.AIPIRequest) (string, error)
+	GetEmbedding(ctx context.Context, request aipitypes.AIPIRequest) (aipitypes.EmbeddingRequest, error)
 }
 
 type AIPIClientFactory struct {
@@ -41,6 +42,13 @@ func (p *Provider) GetCompletion(ctx context.Context, request aipitypes.AIPIRequ
 		return p.openaiClient.GetCompletion(ctx, request)
 	}
 	return aipitypes.AIPIResponse{}, fmt.Errorf("unsupported model: %s", request.Model)
+}
+
+func (p *Provider) GetEmbedding(ctx context.Context, request aipitypes.EmbeddingRequest) ([]float32, error) {
+	if strings.HasPrefix(request.Model, "text-") || strings.HasPrefix(request.Model, "code-") {
+		return p.openaiClient.GetEmbedding(ctx, request)
+	}
+	return nil, fmt.Errorf("unsupported model: %s", request.Model)
 }
 
 func (p *Provider) GetCompletionAsync(ctx context.Context, request aipitypes.AIPIRequest) (string, error) {

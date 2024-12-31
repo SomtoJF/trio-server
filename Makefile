@@ -1,4 +1,4 @@
-.PHONY: run run-postgres run-server run-db-migrate swagger-migrate clean
+.PHONY: run run-postgres run-server run-db-migrate run-qdrant-migrate swagger-migrate clean
 
 run: run-postgres run-server
 
@@ -12,7 +12,13 @@ migrations:
 	$(MAKE) run-db-migrate && $(MAKE) swagger-migrate
 
 run-db-migrate:
+	$(MAKE) run-qdrant-migrate && $(MAKE) run-postgres-migrate
+
+run-postgres-migrate:
 	go run migrations/postgres/migration.go
+
+run-qdrant-migrate:
+	go run migrations/qdrant/migration.go
 
 swagger-migrate:
 	swag init --parseDependency true

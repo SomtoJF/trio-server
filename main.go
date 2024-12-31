@@ -41,7 +41,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	basicMessageEndpoint := basicmessage.NewEndpoint(initializers.DB, deps.AIPIProvider)
+	basicMessageEndpoint := basicmessage.NewEndpoint(initializers.DB, deps.AIPIProvider, initializers.QdrantClient)
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{clientAddress}

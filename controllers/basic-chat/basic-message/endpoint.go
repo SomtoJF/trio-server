@@ -1,6 +1,7 @@
 package basicmessage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -11,14 +12,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/qdrant/go-client/qdrant"
+	"github.com/sashabaranov/go-openai"
 	"github.com/somtojf/trio-server/aipi"
+	"github.com/somtojf/trio-server/aipi/aipitypes"
 	"github.com/somtojf/trio-server/controllers/basic-chat/basic-message/response"
 	"github.com/somtojf/trio-server/models"
+	"github.com/somtojf/trio-server/types/qdranttypes"
 	"gorm.io/gorm"
 )
 
 type Endpoint struct {
 	db           *gorm.DB
+	qdrantDB     *qdrant.Client
 	aipi         *aipi.Provider
 	streamMx     sync.RWMutex
 	streamOutput *SendBasicMessageResponse
@@ -52,9 +58,12 @@ type SendBasicMessageResponse struct {
 	Error          string          `json:"error"`
 }
 
-func NewEndpoint(db *gorm.DB, aipi *aipi.Provider) *Endpoint {
-	return &Endpoint{db, aipi, sync.RWMutex{}, nil}
+func NewEndpoint(db *gorm.DB, aipi *aipi.Provider, qdrantDB *qdrant.Client) *Endpoint {
+	return &Endpoint{db, qdrantDB, aipi, sync.RWMutex{}, nil}
 }
+
+const EMBEDDING_MODEL = string(openai.SmallEmbedding3)
+const MAX_MESSAGE_LENGTH = 400
 
 func (e *Endpoint) GetBasicMessages(c *gin.Context) {
 	currentUser, exists := c.Get("currentUser")
@@ -90,26 +99,31 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 
 	chatId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid chat id"})
+		e.streamError(c, "Invalid chat id")
 		return
 	}
 
 	currentUser, exists := c.Get("currentUser")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		e.streamError(c, "User not authenticated")
 		return
 	}
 	user := currentUser.(models.User)
 
 	var request SendBasicMessageRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		e.streamError(c, err.Error())
+		return
+	}
+
+	if len(request.Message) > MAX_MESSAGE_LENGTH {
+		e.streamError(c, "Message too long")
 		return
 	}
 
 	var chat models.BasicChat
 	if err := e.db.Where("external_id = ? AND user_id = ?", chatId, user.IdUser).First(&chat).Preload("ChatAgents").Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		e.streamError(c, err.Error())
 		return
 	}
 
@@ -122,9 +136,9 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 		agentInformation = append(agentInformation, info)
 	}
 
-	relevantContext, err := e.getRelevantContext(chat.IdBasicChat, HISTORYLIMIT)
+	relevantContext, err := e.getRelevantContext(c.Request.Context(), request.Message, chat.IdBasicChat, HISTORYLIMIT)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		e.streamError(c, err.Error())
 		return
 	}
 
@@ -170,7 +184,26 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 			Content:    data.Content,
 		}
 
-		if err := e.db.Create(newMessage).Error; err != nil {
+		tx := e.db.Begin()
+		if tx.Error != nil {
+			e.streamError(c, tx.Error.Error())
+			return
+		}
+
+		if err := tx.Create(newMessage).Error; err != nil {
+			tx.Rollback()
+			e.streamError(c, err.Error())
+			return
+		}
+
+		if err := e.saveToQdrant(c, *newMessage); err != nil {
+			tx.Rollback()
+			e.streamError(c, err.Error())
+			return
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			tx.Rollback()
 			e.streamError(c, err.Error())
 			return
 		}
@@ -212,9 +245,55 @@ func (e *Endpoint) getChatHistory(chatId uint, limit int) ([]response.HistoryMes
 	return chatHistory, nil
 }
 
-// TODO: Implement this using a vector database i.e qdrant
-func (e *Endpoint) getRelevantContext(chatId uint, limit int) ([]response.HistoryMessage, error) {
-	return nil, nil
+func (e *Endpoint) getRelevantContext(c context.Context, message string, chatId uint, limit int) ([]response.HistoryMessage, error) {
+	limitUint64 := uint64(limit)
+	embeddingRequest := aipitypes.EmbeddingRequest{
+		Input:          message,
+		Model:          EMBEDDING_MODEL,
+		EncodingFormat: string(openai.EmbeddingEncodingFormatFloat),
+		Dimensions:     int(qdranttypes.VECTOR_SIZE_BASIC_MESSAGE),
+	}
+	embedding, err := e.aipi.GetEmbedding(c, embeddingRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	searchResult, err := e.qdrantDB.Query(c, &qdrant.QueryPoints{
+		CollectionName: string(qdranttypes.COLLECTION_NAME_BASIC_MESSAGES),
+		Query:          qdrant.NewQuery(embedding...),
+		Limit:          &limitUint64,
+		Filter: &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewMatch("chat_id", string(chatId)),
+			},
+		},
+		WithPayload: qdrant.NewWithPayload(true),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var relevantContext []response.HistoryMessage
+	for _, point := range searchResult {
+		payload := point.GetPayload()
+		content := payload["content"]
+		senderName := payload["sender_name"]
+		sentAt := payload["created_at"]
+
+		timeValue, err := time.Parse(time.RFC1123, sentAt.String())
+		if err != nil {
+			return nil, err
+		}
+
+		historyMessage := response.HistoryMessage{
+			SenderName: senderName.String(),
+			Content:    content.String(),
+			SentAt:     timeValue,
+		}
+		relevantContext = append(relevantContext, historyMessage)
+	}
+
+	return relevantContext, nil
 }
 
 func shuffleArray[T any](array []T) []T {
@@ -230,6 +309,43 @@ func shuffleArray[T any](array []T) []T {
 	}
 
 	return shuffled
+}
+
+func (e *Endpoint) saveToQdrant(c context.Context, message models.BasicMessage) error {
+	embeddingRequest := aipitypes.EmbeddingRequest{
+		Input:          message.Content,
+		Model:          EMBEDDING_MODEL,
+		EncodingFormat: string(openai.EmbeddingEncodingFormatFloat),
+		Dimensions:     int(qdranttypes.VECTOR_SIZE_BASIC_MESSAGE),
+	}
+	embedding, err := e.aipi.GetEmbedding(c, embeddingRequest)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]any{
+		"chat_id":     message.ChatID,
+		"content":     message.Content,
+		"sender_name": message.SenderName,
+		"external_id": message.ExternalID,
+		"created_at":  message.CreatedAt.String(),
+	}
+
+	_, err = e.qdrantDB.Upsert(c, &qdrant.UpsertPoints{
+		CollectionName: string(qdranttypes.COLLECTION_NAME_BASIC_MESSAGES),
+		Points: []*qdrant.PointStruct{
+			{
+				Id:      qdrant.NewIDNum(uint64(message.IdBasicMessage)),
+				Vectors: qdrant.NewVectors(embedding...),
+				Payload: qdrant.NewValueMap(payload),
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *Endpoint) streamAgentResponses(c *gin.Context, response AgentResponse) {

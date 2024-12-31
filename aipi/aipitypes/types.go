@@ -9,3 +9,10 @@ type AIPIRequest struct {
 	UserMessage   string `json:"user_message"`
 	Model         string `json:"model"`
 }
+
+type EmbeddingRequest struct {
+	Input          any
+	Model          string
+	EncodingFormat string
+	Dimensions     int
+}
