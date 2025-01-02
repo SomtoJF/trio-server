@@ -73,8 +73,7 @@ func (r *Response) Run(ctx context.Context, infoBank InfoBank, model string) (Ru
 		Model:         model,
 		SystemMessage: systemBuf.String(),
 		UserMessage:   userBuf.String(),
-
-		// TODO: Add user info so that AIPI can log responses
+		IdUser:        infoBank.IdUser,
 	}
 	response, err := r.aipi.GetCompletion(ctx, *request)
 	if err != nil {

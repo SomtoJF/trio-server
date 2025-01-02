@@ -63,6 +63,7 @@ func NewEndpoint(db *gorm.DB, aipi *aipi.Provider, qdrantDB *qdrant.Client) *End
 }
 
 const EMBEDDING_MODEL = string(openai.SmallEmbedding3)
+const RESPONSE_MODEL = string(openai.GPT4oMini)
 const MAX_MESSAGE_LENGTH = 400
 
 func (e *Endpoint) GetBasicMessages(c *gin.Context) {
@@ -172,7 +173,7 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 		}
 
 		response := response.NewResponse(e.db, e.aipi)
-		data, err := response.Run(c.Request.Context(), infoBank, string(openai.GPT4o))
+		data, err := response.Run(c.Request.Context(), infoBank, RESPONSE_MODEL)
 		if err != nil {
 			e.streamError(c, fmt.Sprintf("Agent %s response error: %s", agent.AgentName, err.Error()))
 			return

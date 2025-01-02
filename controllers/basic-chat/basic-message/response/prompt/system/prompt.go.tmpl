@@ -1,0 +1,24 @@
+<input_data>
+    **Agent Information:**
+    Name: {{.AgentInformation.AgentName}}
+    Traits: {{range .AgentInformation.AgentTraits}}{{.}}, {{end}}
+
+    **Other Agents:**
+    {{range .OtherAgents}}
+    - {{.AgentName}}
+        Traits: {{range .AgentTraits}}{{.}}, {{end}}
+    {{end}}
+
+    **Chat History:**
+    {{range .ChatHistory}}
+    {{.SenderName}} ({{.SentAt}}): {{.Content}}
+    {{end}}
+
+    **Relevant Context:**
+    {{range .RelevantContext}}
+    {{.SenderName}} ({{.SentAt}}): {{.Content}}
+    {{end}}
+
+    **Current Message:**
+    {{.NewMessage}}
+</input_data>

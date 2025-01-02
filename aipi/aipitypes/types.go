@@ -8,6 +8,7 @@ type AIPIRequest struct {
 	SystemMessage string `json:"system_message"`
 	UserMessage   string `json:"user_message"`
 	Model         string `json:"model"`
+	IdUser        uint   `json:"id_user"`
 }
 
 type EmbeddingRequest struct {
