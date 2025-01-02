@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/aidarkhanov/nanoid"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"github.com/somtojf/trio-server/models"
@@ -87,6 +89,45 @@ func (e *Endpoint) Login(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "success",
 	})
+}
+
+func (e *Endpoint) GuestLogin(c *gin.Context) {
+	domain := os.Getenv("DOMAIN")
+	guestId, err := nanoid.Generate(nanoid.DefaultAlphabet, 6)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
+		return
+	}
+
+	userName := fmt.Sprintf("guest-%s", guestId)
+
+	user := models.User{
+		Username:     userName,
+		FullName:     fmt.Sprintf("Guest-%s", guestId),
+		PasswordHash: "",
+		IsGuest:      true,
+	}
+
+	if err := e.DB.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
+		return
+	}
+
+	generateToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id":       user.ExternalID.String(),
+		"username": user.Username,
+		"exp":      time.Now().Add(time.Hour * 24 * 7).Unix(),
+	})
+
+	token, err := generateToken.SignedString([]byte(os.Getenv("SECRET")))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
+		return
+	}
+
+	c.SetCookie("Access_Token", token, 604800, "/", domain, false, true)
+
+	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
 
 // Signup godoc

@@ -55,6 +55,7 @@ func main() {
 	{
 		public.POST("/login", authEndpoint.Login)
 		public.POST("/signup", authEndpoint.Signup)
+		public.POST("/login/guest", authEndpoint.GuestLogin)
 
 		public.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"message": "OK"})
