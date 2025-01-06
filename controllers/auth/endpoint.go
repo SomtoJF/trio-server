@@ -91,6 +91,15 @@ func (e *Endpoint) Login(c *gin.Context) {
 	})
 }
 
+// GuestLogin godoc
+//
+//	@Summary		Create guest account
+//	@Description	Creates a temporary guest account with a random username and returns an access token
+//	@Tags			auth
+//	@Produce		json
+//	@Success		200	{object}	map[string]interface{}	"Guest account created successfully"
+//	@Failure		500	{object}	map[string]interface{}	"Internal server error"
+//	@Router			/guest-login [post]
 func (e *Endpoint) GuestLogin(c *gin.Context) {
 	domain := os.Getenv("DOMAIN")
 	guestId, err := nanoid.Generate(nanoid.DefaultAlphabet, 6)
