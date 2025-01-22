@@ -34,7 +34,7 @@ func (e *Endpoint) GetReflectionChats(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, reflectionChats)
+	c.JSON(http.StatusOK, gin.H{"data": reflectionChats})
 }
 
 func (e *Endpoint) CreateReflectionChat(c *gin.Context) {
@@ -61,7 +61,7 @@ func (e *Endpoint) CreateReflectionChat(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, newChat)
+	c.JSON(http.StatusCreated, gin.H{"data": newChat})
 }
 
 func (e *Endpoint) DeleteReflectionChat(c *gin.Context) {

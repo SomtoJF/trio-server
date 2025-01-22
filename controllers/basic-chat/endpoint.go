@@ -88,7 +88,7 @@ func (e *Endpoint) CreateBasicChat(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, chat)
+	c.JSON(http.StatusCreated, gin.H{"data": chat})
 }
 
 func (e *Endpoint) GetBasicChats(c *gin.Context) {
@@ -108,7 +108,7 @@ func (e *Endpoint) GetBasicChats(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, chats)
+	c.JSON(http.StatusOK, gin.H{"data": chats})
 }
 
 func (e *Endpoint) UpdateBasicChat(c *gin.Context) {
@@ -186,7 +186,7 @@ func (e *Endpoint) UpdateBasicChat(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, updatedChat)
+	c.JSON(http.StatusOK, gin.H{"data": updatedChat})
 }
 
 func (e *Endpoint) DeleteBasicChat(c *gin.Context) {
