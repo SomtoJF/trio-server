@@ -19,27 +19,30 @@ func main() {
 
 func createQdrantCollections(client *qdrant.Client) error {
 	ctx := context.Background()
+	collections := []qdranttypes.CollectionName{qdranttypes.COLLECTION_NAME_BASIC_MESSAGES, qdranttypes.COLLECTION_NAME_REFLECTION_MESSAGES}
 
-	exists, err := client.CollectionExists(ctx, string(qdranttypes.COLLECTION_NAME_BASIC_MESSAGES))
-	if err != nil {
-		return fmt.Errorf("error checking collection existence: %w", err)
-	}
+	for _, collection := range collections {
+		exists, err := client.CollectionExists(ctx, string(collection))
+		if err != nil {
+			return fmt.Errorf("error checking collection existence: %w", err)
+		}
 
-	if exists {
-		return nil
-	}
+		if exists {
+			return nil
+		}
 
-	// Collection doesn't exist, create it
-	err = client.CreateCollection(ctx, &qdrant.CreateCollection{
-		CollectionName: string(qdranttypes.COLLECTION_NAME_BASIC_MESSAGES),
-		VectorsConfig: qdrant.NewVectorsConfig(&qdrant.VectorParams{
-			Size:     uint64(qdranttypes.VECTOR_SIZE_BASIC_MESSAGE),
-			Distance: qdrant.Distance_Cosine,
-		}),
-	})
+		// Collection doesn't exist, create it
+		err = client.CreateCollection(ctx, &qdrant.CreateCollection{
+			CollectionName: string(collection),
+			VectorsConfig: qdrant.NewVectorsConfig(&qdrant.VectorParams{
+				Size:     uint64(qdranttypes.VECTOR_SIZE_BASIC_MESSAGE),
+				Distance: qdrant.Distance_Cosine,
+			}),
+		})
 
-	if err != nil {
-		return fmt.Errorf("error creating collection: %w", err)
+		if err != nil {
+			return fmt.Errorf("error creating collection: %w", err)
+		}
 	}
 
 	return nil

@@ -1,0 +1,23 @@
+<input_data>
+    **Chat History:**
+    {{range .ChatHistory}}
+    {{.SenderName}} ({{.SentAt}}): {{.Content}}
+    {{end}}
+
+    **Relevant Context:**
+    {{range .Context}}
+    ({{.SentAt}}): {{.Content}}
+    {{end}}
+
+    **Current Message:**
+    {{.Message}}
+
+    **Answerer's Most Recent Response:**
+    {{.AnswererResponse.Content}}
+
+    **Previous Responses:**
+    {{range .PreviousResponses}}
+    Answerer: {{.AnswererResponse.Content}}
+    Evaluator: {{.EvaluatorResponse.Content}}
+    {{end}}
+</input_data>

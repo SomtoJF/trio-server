@@ -65,6 +65,7 @@ func NewEndpoint(db *gorm.DB, aipi *aipi.Provider, qdrantDB *qdrant.Client) *End
 const EMBEDDING_MODEL = string(openai.SmallEmbedding3)
 const RESPONSE_MODEL = string(openai.GPT4oMini)
 const MAX_MESSAGE_LENGTH = 400
+const HISTORYLIMIT = 10
 
 func (e *Endpoint) GetBasicMessages(c *gin.Context) {
 	currentUser, exists := c.Get("currentUser")
@@ -96,7 +97,37 @@ func (e *Endpoint) GetBasicMessages(c *gin.Context) {
 }
 
 func (e *Endpoint) SendBasicMessage(c *gin.Context) {
-	const HISTORYLIMIT = 10
+	e.streamOutput = &SendBasicMessageResponse{
+		Status: make([]Status, 0),
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Transfer-Encoding", "chunked")
+
+	done := make(chan struct{})
+	defer close(done)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 300*time.Second)
+	defer cancel()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.DeadlineExceeded {
+				e.streamError(c, "Request timeout exceeded")
+			}
+			done <- struct{}{}
+		case <-done:
+			return
+		}
+	}()
+
+	defer func() {
+		c.SSEvent("done", "done")
+		c.Writer.Flush()
+	}()
 
 	chatId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -391,6 +422,9 @@ func (e *Endpoint) streamError(c *gin.Context, error string) {
 	e.streamMx.Lock()
 	defer e.streamMx.Unlock()
 
+	if e.streamOutput == nil {
+		e.streamOutput = &SendBasicMessageResponse{}
+	}
 	e.streamOutput.Error = error
 	e.updateStream(c, *e.streamOutput)
 }

@@ -14,6 +14,7 @@ import (
 	basicchat "github.com/somtojf/trio-server/controllers/basic-chat"
 	basicmessage "github.com/somtojf/trio-server/controllers/basic-chat/basic-message"
 	reflectionchat "github.com/somtojf/trio-server/controllers/reflection-chat"
+	reflectionmessage "github.com/somtojf/trio-server/controllers/reflection-chat/reflection-message"
 	"github.com/somtojf/trio-server/initializers"
 	authcheck "github.com/somtojf/trio-server/middleware/auth-check"
 )
@@ -41,6 +42,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	reflectionMessageEndpoint := reflectionmessage.NewEndpoint(initializers.DB, deps.AIPIProvider, initializers.QdrantClient)
 	basicMessageEndpoint := basicmessage.NewEndpoint(initializers.DB, deps.AIPIProvider, initializers.QdrantClient)
 
 	config := cors.DefaultConfig()
@@ -75,6 +77,7 @@ func main() {
 			reflectionChats.GET("/", reflectionChatEndpoint.GetReflectionChats)
 			reflectionChats.POST("/", reflectionChatEndpoint.CreateReflectionChat)
 			reflectionChats.DELETE("/:id", reflectionChatEndpoint.DeleteReflectionChat)
+			reflectionChats.POST("/:id/messages", reflectionMessageEndpoint.SendMessage)
 		}
 
 		basicChats := authenticated.Group("/basic-chats")

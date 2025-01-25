@@ -6,7 +6,7 @@ run-postgres:
 	docker-compose -f ./docker/compose.yml up -d
 
 run-server:
-	CompileDaemon -command="./trio-server"
+	CompileDaemon -command="./trio-server" -exclude-dir="vendor"
 
 migrations:
 	$(MAKE) run-db-migrate && $(MAKE) swagger-migrate
