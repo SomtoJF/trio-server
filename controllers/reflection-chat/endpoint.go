@@ -67,7 +67,7 @@ func (e *Endpoint) GetReflectionChat(c *gin.Context) {
 	}})
 }
 
-func (e *Endpoint) GetReflectionMessages(c *gin.Context) {
+func (e *Endpoint) GetChatReflections(c *gin.Context) {
 	chatID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid chat ID"})
@@ -84,7 +84,7 @@ func (e *Endpoint) GetReflectionMessages(c *gin.Context) {
 	if err := e.db.
 		Preload("Messages").
 		Preload("EvaluatorMessages").
-		Where("chat_id = ?", reflectionChats.IdReflectionChat).
+		Where("id_reflection_chat = ?", reflectionChats.IdReflectionChat).
 		Find(&reflections).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reflections"})
 		return
