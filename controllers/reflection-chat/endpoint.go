@@ -2,8 +2,10 @@ package reflectionchat
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/somtojf/trio-server/models"
 	"gorm.io/gorm"
 )
@@ -35,6 +37,60 @@ func (e *Endpoint) GetReflectionChats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": reflectionChats})
+}
+
+type GetReflectionChatResponse struct {
+	ID        string    `json:"id"`
+	ChatName  string    `json:"chatName"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func (e *Endpoint) GetReflectionChat(c *gin.Context) {
+	chatID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid chat ID"})
+		return
+	}
+
+	var reflectionChats models.ReflectionChat
+	if err := e.db.Where("external_id = ?", chatID).First(&reflectionChats).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reflection chats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": GetReflectionChatResponse{
+		ID:        reflectionChats.ExternalID.String(),
+		ChatName:  reflectionChats.ChatName,
+		CreatedAt: reflectionChats.CreatedAt,
+		UpdatedAt: reflectionChats.UpdatedAt,
+	}})
+}
+
+func (e *Endpoint) GetReflectionMessages(c *gin.Context) {
+	chatID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid chat ID"})
+		return
+	}
+
+	var reflectionChats models.ReflectionChat
+	if err := e.db.Where("external_id = ?", chatID).First(&reflectionChats).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reflection chats"})
+		return
+	}
+
+	var reflections []models.Reflection
+	if err := e.db.
+		Preload("Messages").
+		Preload("EvaluatorMessages").
+		Where("chat_id = ?", reflectionChats.IdReflectionChat).
+		Find(&reflections).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reflections"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": reflections})
 }
 
 func (e *Endpoint) CreateReflectionChat(c *gin.Context) {

@@ -78,6 +78,9 @@ func main() {
 			reflectionChats.POST("/", reflectionChatEndpoint.CreateReflectionChat)
 			reflectionChats.DELETE("/:id", reflectionChatEndpoint.DeleteReflectionChat)
 			reflectionChats.POST("/:id/messages", reflectionMessageEndpoint.SendMessage)
+			reflectionChats.GET("/:id", reflectionChatEndpoint.GetReflectionChat)
+			// This gets reflections rather than messages
+			reflectionChats.GET("/:id/messages", reflectionChatEndpoint.GetReflectionMessages)
 		}
 
 		basicChats := authenticated.Group("/basic-chats")

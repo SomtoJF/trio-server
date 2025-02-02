@@ -1,6 +1,7 @@
 package basicchat
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -102,11 +103,12 @@ func (e *Endpoint) GetBasicChats(c *gin.Context) {
 
 	var chats []models.BasicChat
 
-	result := e.db.Where("user_id = ?", user.IdUser).Find(&chats)
-	if result.Error != nil {
+	if err := e.db.Where("user_id = ?", user.IdUser).Find(&chats).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch chats"})
 		return
 	}
+
+	fmt.Println(chats)
 
 	c.JSON(http.StatusOK, gin.H{"data": chats})
 }
