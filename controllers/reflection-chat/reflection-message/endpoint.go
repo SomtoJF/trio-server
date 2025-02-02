@@ -37,6 +37,27 @@ type SendReflectionMessageResponse struct {
 	Error      string            `json:"error"`
 }
 
+// type MessageData struct {
+// 	ID         uuid.UUID `json:"id"`
+// 	Content    string    `json:"content"`
+// 	SenderName string    `json:"senderName"`
+// 	IsOptimal  bool      `json:"isOptimal"`
+// 	SentAt     time.Time `json:"sentAt"`
+// }
+
+// type EvaluatorMessageData struct {
+// 	ID        uuid.UUID `json:"id"`
+// 	Content   string    `json:"content"`
+// 	IsOptimal bool      `json:"isOptimal"`
+// 	SentAt    time.Time `json:"sentAt"`
+// }
+
+// type ReflectionData struct {
+// 	ID                uuid.UUID              `json:"id"`
+// 	Messages          []MessageData          `json:"messages"`
+// 	EvaluatorMessages []EvaluatorMessageData `json:"evaluatorMessages"`
+// }
+
 type SendMessageRequest struct {
 	Message string `json:"message" binding:"required"`
 }
@@ -50,6 +71,13 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	e.streamOutput = &SendReflectionMessageResponse{
 		Status: make([]string, 0),
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic: %v", r)
+			e.streamError(c, "An unexpected error occurred")
+		}
+	}()
 
 	done := make(chan struct{})
 	defer close(done)
@@ -69,7 +97,6 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		}
 	}()
 
-	// Set headers before any potential errors
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -114,11 +141,14 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	}
 
 	e.streamStatus(c, "Getting relevant context...")
-	relevantContext, err := e.getRelevantContext(ctx, request.Message, chat.ExternalID, 10)
-	if err != nil {
-		e.streamError(c, err.Error())
-		return
-	}
+
+	// TODO: Uncomment this
+	// relevantContext, err := e.getRelevantContext(ctx, request.Message, chat.ExternalID, 10)
+	// if err != nil {
+	// 	e.streamError(c, err.Error())
+	// 	return
+	// }
+	relevantContext := []response.HistoryMessage{}
 
 	optimalResponseGotten := false
 	numberOfIterations := 0
@@ -130,7 +160,8 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	if err := tx.Create(&reflection).Error; err != nil {
 		tx.Rollback()
 		log.Printf("Failed to create reflection: %v", err)
-		e.streamError(c, "An error occured")
+		e.streamError(c, "An error occurred")
+		return
 	}
 
 	userMessage := models.ReflectionMessage{
@@ -142,6 +173,7 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		tx.Rollback()
 		log.Printf("Failed to create user message: %v", err)
 		e.streamError(c, "An error occured while sending your message")
+		return
 	}
 
 	previousResponses := []response.PreviousResponse{}
@@ -192,7 +224,7 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		}
 
 		// Reload reflection to get the latest messages
-		if err := e.refreshReflection(tx, reflection).Error; err != nil {
+		if err := e.refreshReflection(tx, &reflection).Error; err != nil {
 			tx.Rollback()
 			log.Printf("Failed to reload reflection: %v", err)
 			e.streamError(c, "An error occured while sending your message")
@@ -228,7 +260,7 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		}
 
 		// Reload reflection again to get the latest messages including evaluator message
-		if err := e.refreshReflection(tx, reflection).Error; err != nil {
+		if err := e.refreshReflection(tx, &reflection).Error; err != nil {
 			tx.Rollback()
 			log.Printf("Failed to reload reflection: %v", err)
 			e.streamError(c, "An error occured while sending your message")
@@ -251,27 +283,11 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	}
 
 	// Save reflection messages to Qdrant
-	for _, message := range reflection.Messages {
-		if err := e.saveToQdrant(ctx, message, chat.ExternalID); err != nil {
-			tx.Rollback()
-			log.Printf("Failed to save message to qdrant: %v", err)
-			e.streamError(c, "An error occured while sending your message")
-			return
-		}
-	}
-
-	// Save evaluator messages to Qdrant separately
-	// Should I actually save the evaluator messages to Qdrant?
-	// for _, evalMessage := range reflection.EvaluatorMessages {
-	// 	message := models.ReflectionMessage{
-	// 		ReflectionID: reflection.IdReflection,
-	// 		SenderName:   "Evaluator",
-	// 		Content:      evalMessage.Content,
-	// 	}
-
-	// 	if err := e.saveToQdrant(c, message, chat.ExternalID); err != nil {
+	// TODO: Uncomment this
+	// for _, message := range reflection.Messages {
+	// 	if err := e.saveToQdrant(ctx, message, chat.ExternalID); err != nil {
 	// 		tx.Rollback()
-	// 		log.Printf("Failed to save evaluator message to qdrant: %v", err)
+	// 		log.Printf("Failed to save message to qdrant: %v", err)
 	// 		e.streamError(c, "An error occured while sending your message")
 	// 		return
 	// 	}
@@ -285,8 +301,11 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	}
 }
 
-func (e *Endpoint) refreshReflection(tx *gorm.DB, reflection models.Reflection) error {
-	if err := tx.Preload("Messages").Preload("EvaluatorMessages").First(&reflection, reflection.IdReflection).Error; err != nil {
+func (e *Endpoint) refreshReflection(tx *gorm.DB, reflection *models.Reflection) error {
+	if err := tx.Preload("Messages").Preload("EvaluatorMessages").First(reflection, reflection.IdReflection).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
 		return err
 	}
 
@@ -296,7 +315,7 @@ func (e *Endpoint) refreshReflection(tx *gorm.DB, reflection models.Reflection) 
 // Get the chat history for the reflection chat. Only get the optimal messages
 func (e *Endpoint) getChatHistory(chatId uint, limit int, user models.User) ([]response.HistoryMessage, error) {
 	var messages []models.ReflectionMessage
-	if err := e.db.Where("reflection_id IN (SELECT id_reflection FROM reflections WHERE id_reflection_chat = ?) AND is_optimal = ?", chatId, true).
+	if err := e.db.Where("id_reflection IN (SELECT id_reflection FROM reflections WHERE id_reflection_chat = ?) AND is_optimal = ?", chatId, true).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&messages).Error; err != nil {
