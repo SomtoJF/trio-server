@@ -80,7 +80,7 @@ func main() {
 			reflectionChats.POST("/:id/messages", reflectionMessageEndpoint.SendMessage)
 			reflectionChats.GET("/:id", reflectionChatEndpoint.GetReflectionChat)
 			// This gets reflections rather than messages
-			reflectionChats.GET("/:id/messages", reflectionChatEndpoint.GetReflectionMessages)
+			reflectionChats.GET("/:id/reflections", reflectionChatEndpoint.GetChatReflections)
 		}
 
 		basicChats := authenticated.Group("/basic-chats")
