@@ -15,7 +15,7 @@ func init() {
 func main() {
 	db := initializers.DB
 
-	error := db.AutoMigrate(&models.User{}, &models.BasicChat{}, &models.ReflectionChat{}, &models.BasicAgent{}, &models.BasicMessage{}, &models.Reflection{}, &models.ReflectionMessage{})
+	error := db.AutoMigrate(&models.User{}, &models.BasicChat{}, &models.ReflectionChat{}, &models.BasicAgent{}, &models.BasicMessage{}, &models.Reflection{}, &models.ReflectionMessage{}, &models.EvaluatorMessage{})
 
 	if error != nil {
 		log.Fatal("Error migrating database: ", error)
