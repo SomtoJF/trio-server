@@ -43,14 +43,14 @@ type SendBasicMessageRequest struct {
 }
 
 type AgentResponse struct {
-	AgentName string
-	Content   string
-	CreatedAt time.Time
+	AgentName string    `json:"agentName"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type Status struct {
-	Status    ResponseStatus
-	AgentName string
+	Status    string `json:"status"`
+	AgentName string `json:"agentName"`
 }
 
 type SendBasicMessageResponse struct {
@@ -192,7 +192,7 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 	}
 
 	e.streamStatus(c, Status{
-		Status:    ResponseStatusUnderstandingContext,
+		Status:    fmt.Sprintf("%s is trying to understand the context", agentInformation[0].AgentName),
 		AgentName: agentInformation[0].AgentName,
 	})
 
@@ -208,12 +208,23 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 
 	startTime := time.Now()
 
+	userMessage := &models.BasicMessage{
+		SenderName: user.Username,
+		Content:    request.Message,
+		ChatID:     chat.IdBasicChat,
+	}
+
+	if err := e.db.Create(userMessage).Error; err != nil {
+		e.streamError(c, err.Error())
+		return
+	}
+
 	for _, agent := range agentInformation {
 		agentStartTime := time.Now()
 
 		// Update agent status to thinking
 		e.streamStatus(c, Status{
-			Status:    ResponseStatusThinking,
+			Status:    fmt.Sprintf("%s is thinking", agent.AgentName),
 			AgentName: agent.AgentName,
 		})
 
