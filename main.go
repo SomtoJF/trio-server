@@ -13,6 +13,7 @@ import (
 	"github.com/somtojf/trio-server/controllers/auth"
 	basicchat "github.com/somtojf/trio-server/controllers/basic-chat"
 	basicmessage "github.com/somtojf/trio-server/controllers/basic-chat/basic-message"
+	"github.com/somtojf/trio-server/controllers/health"
 	reflectionchat "github.com/somtojf/trio-server/controllers/reflection-chat"
 	reflectionmessage "github.com/somtojf/trio-server/controllers/reflection-chat/reflection-message"
 	"github.com/somtojf/trio-server/initializers"
@@ -45,6 +46,8 @@ func main() {
 	reflectionMessageEndpoint := reflectionmessage.NewEndpoint(initializers.DB, deps.AIPIProvider, initializers.QdrantClient)
 	basicMessageEndpoint := basicmessage.NewEndpoint(initializers.DB, deps.AIPIProvider, initializers.QdrantClient)
 
+	healthEndpoint := health.NewEndpoint()
+
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{clientAddress}
 	config.AllowCredentials = true
@@ -71,6 +74,11 @@ func main() {
 		authenticated.POST("/reset-password", authEndpoint.ResetPassword)
 		authenticated.GET("/completions", authEndpoint.GetCurrentUser)
 		authenticated.GET("/me", authEndpoint.GetCurrentUser)
+
+		health := authenticated.Group("/health")
+		{
+			health.GET("/", healthEndpoint.HealthCheck)
+		}
 
 		reflectionChats := authenticated.Group("/reflection-chats")
 		{
