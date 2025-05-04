@@ -33,8 +33,9 @@ type Endpoint struct {
 type ResponseStatus string
 
 const (
-	ResponseStatusTyping   ResponseStatus = "typing"
-	ResponseStatusThinking ResponseStatus = "thinking"
+	ResponseStatusTyping               ResponseStatus = "typing"
+	ResponseStatusThinking             ResponseStatus = "thinking"
+	ResponseStatusUnderstandingContext ResponseStatus = "understanding context"
 )
 
 type SendBasicMessageRequest struct {
@@ -83,12 +84,16 @@ func (e *Endpoint) GetBasicMessages(c *gin.Context) {
 
 	var chat models.BasicChat
 	if err := e.db.Where("external_id = ? AND user_id = ?", chatId, user.IdUser).First(&chat).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Chat not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	var messages []models.BasicMessage
-	if err := e.db.Where("chat_id = ?", chat.IdBasicChat).Find(&messages).Error; err != nil {
+	if err := e.db.Where("id_basic_chat = ?", chat.IdBasicChat).Find(&messages).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -97,9 +102,13 @@ func (e *Endpoint) GetBasicMessages(c *gin.Context) {
 }
 
 func (e *Endpoint) SendBasicMessage(c *gin.Context) {
+	// Initialize stream output for this request
+	e.streamMx.Lock()
 	e.streamOutput = &SendBasicMessageResponse{
-		Status: make([]Status, 0),
+		AgentResponses: make([]AgentResponse, 0),
+		Status:         make([]Status, 0),
 	}
+	e.streamMx.Unlock()
 
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
@@ -107,7 +116,13 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 	c.Header("Transfer-Encoding", "chunked")
 
 	done := make(chan struct{})
-	defer close(done)
+	defer func() {
+		select {
+		case done <- struct{}{}:
+		default:
+		}
+		close(done)
+	}()
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 300*time.Second)
 	defer cancel()
@@ -118,7 +133,6 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 			if ctx.Err() == context.DeadlineExceeded {
 				e.streamError(c, "Request timeout exceeded")
 			}
-			done <- struct{}{}
 		case <-done:
 			return
 		}
@@ -154,8 +168,17 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 	}
 
 	var chat models.BasicChat
-	if err := e.db.Where("external_id = ? AND user_id = ?", chatId, user.IdUser).First(&chat).Preload("ChatAgents").Error; err != nil {
+	if err := e.db.Where("external_id = ? AND user_id = ?", chatId, user.IdUser).Preload("ChatAgents").First(&chat).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			e.streamError(c, "Chat not found")
+			return
+		}
 		e.streamError(c, err.Error())
+		return
+	}
+
+	if len(chat.ChatAgents) < 1 {
+		e.streamError(c, "There are no agents to respond")
 		return
 	}
 
@@ -168,7 +191,14 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 		agentInformation = append(agentInformation, info)
 	}
 
-	relevantContext, err := e.getRelevantContext(c.Request.Context(), request.Message, chat.IdBasicChat, HISTORYLIMIT)
+	e.streamStatus(c, Status{
+		Status:    ResponseStatusUnderstandingContext,
+		AgentName: agentInformation[0].AgentName,
+	})
+
+	var relevantContext []response.HistoryMessage
+	// TODO: Uncomment this
+	relevantContext, err = e.getRelevantContext(c.Request.Context(), request.Message, chat.IdBasicChat, HISTORYLIMIT)
 	if err != nil {
 		e.streamError(c, err.Error())
 		return
@@ -180,6 +210,12 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 
 	for _, agent := range agentInformation {
 		agentStartTime := time.Now()
+
+		// Update agent status to thinking
+		e.streamStatus(c, Status{
+			Status:    ResponseStatusThinking,
+			AgentName: agent.AgentName,
+		})
 
 		chatHistory, err := e.getChatHistory(chat.IdBasicChat, HISTORYLIMIT)
 		if err != nil {
@@ -208,6 +244,12 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 		if err != nil {
 			e.streamError(c, fmt.Sprintf("Agent %s response error: %s", agent.AgentName, err.Error()))
 			return
+		}
+
+		// Skip empty responses
+		if data.Content == "" {
+			slog.Info("Agent %s skipped response as message was directed to another agent", agent.AgentName)
+			continue
 		}
 
 		newMessage := &models.BasicMessage{
@@ -257,7 +299,7 @@ func (e *Endpoint) SendBasicMessage(c *gin.Context) {
 
 func (e *Endpoint) getChatHistory(chatId uint, limit int) ([]response.HistoryMessage, error) {
 	var messages []models.BasicMessage
-	if err := e.db.Where("chat_id = ?", chatId).
+	if err := e.db.Where("id_basic_chat = ?", chatId).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&messages).Error; err != nil {
@@ -359,7 +401,7 @@ func (e *Endpoint) saveToQdrant(c context.Context, message models.BasicMessage) 
 		"chat_id":     message.ChatID,
 		"content":     message.Content,
 		"sender_name": message.SenderName,
-		"external_id": message.ExternalID,
+		"external_id": message.ExternalID.String(),
 		"created_at":  message.CreatedAt.String(),
 	}
 

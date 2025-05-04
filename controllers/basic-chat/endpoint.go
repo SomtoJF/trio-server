@@ -238,3 +238,15 @@ func (e *Endpoint) DeleteBasicChat(c *gin.Context) {
 
 	c.JSON(http.StatusNoContent, gin.H{"message": "Chat deleted successfully"})
 }
+
+func (e *Endpoint) GetBasicChat(c *gin.Context) {
+	chatID := c.Param("id")
+
+	var chat models.BasicChat
+	if err := e.db.Where("external_id = ?", chatID).Preload("ChatAgents").First(&chat).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch chat"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": chat})
+}
