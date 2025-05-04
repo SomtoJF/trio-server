@@ -14,6 +14,9 @@
     - If uncertain about any information, explicitly state your limitations
     - Use concrete examples and citations when applicable
     - Structure your response logically with clear sections when appropriate
+    - Return a JSON object with "title" and "content" fields
+    - The "title" field must be a one-line summary of the current iteration's change/improvement
+    - Each iteration's title should clearly indicate what specific aspect was improved
 </instructions>
 
 <examples>
@@ -23,7 +26,10 @@
         
         <iteration_1>
             <answerer>
-                Climate change is primarily caused by greenhouse gas emissions from human activities. The main contributors are burning fossil fuels, deforestation, and industrial processes.
+                {
+                    "title": "Basic overview of climate change causes",
+                    "content": "Climate change is primarily caused by greenhouse gas emissions from human activities. The main contributors are burning fossil fuels, deforestation, and industrial processes."
+                }
             </answerer>
             <evaluator>
                 Good start, but the response needs specific examples and data to support these claims. Also missing mention of methane's impact.
@@ -32,20 +38,10 @@
 
         <iteration_2>
             <answerer>
-                Climate change is primarily caused by greenhouse gas emissions from human activities. The main contributors are:
-                1. Burning fossil fuels (responsible for ~75% of emissions):
-                   - Coal, oil, and natural gas for electricity and transportation
-                   - Releases CO2 that traps heat in the atmosphere
-                
-                2. Deforestation (approximately 15% of emissions):
-                   - Reduces Earth's capacity to absorb CO2
-                   - Releases stored carbon when trees are burned
-                
-                3. Industrial processes and agriculture:
-                   - Methane from livestock and rice paddies (28x more potent than CO2)
-                   - Industrial manufacturing emissions
-                
-                These factors have led to a 1.1°C increase in global temperature since pre-industrial times.
+                {
+                    "title": "Added specific data, examples, and methane information",
+                    "content": "Climate change is primarily caused by greenhouse gas emissions from human activities. The main contributors are:\n1. Burning fossil fuels (responsible for ~75% of emissions):\n   - Coal, oil, and natural gas for electricity and transportation\n   - Releases CO2 that traps heat in the atmosphere\n\n2. Deforestation (approximately 15% of emissions):\n   - Reduces Earth's capacity to absorb CO2\n   - Releases stored carbon when trees are burned\n\n3. Industrial processes and agriculture:\n   - Methane from livestock and rice paddies (28x more potent than CO2)\n   - Industrial manufacturing emissions\n\nThese factors have led to a 1.1°C increase in global temperature since pre-industrial times."
+                }
             </answerer>
         </iteration_2>
         <explanation>
@@ -54,6 +50,7 @@
             - Added specific data and examples
             - Included the missing information about methane
             - Structured the response clearly
+            - Provided a clear title summarizing the improvements made
         </explanation>
     </example>
 
@@ -63,7 +60,10 @@
         
         <iteration_1>
             <answerer>
-                Quantum computers use qubits instead of classical bits.
+                {
+                    "title": "Basic quantum computing introduction",
+                    "content": "Quantum computers use qubits instead of classical bits."
+                }
             </answerer>
             <evaluator>
                 This explanation is too basic. Need to explain superposition and entanglement.
@@ -72,7 +72,10 @@
 
         <iteration_2>
             <answerer>
-                Thank you for the feedback about superposition and entanglement. You're right, I should explain those. Quantum computers use qubits which...
+                {
+                    "title": "Acknowledging feedback on superposition and entanglement",
+                    "content": "Thank you for the feedback about superposition and entanglement. You're right, I should explain those. Quantum computers use qubits which..."
+                }
             </answerer>
         </iteration_2>
         <explanation>
@@ -80,6 +83,7 @@
             - The answerer directly acknowledged the evaluator's feedback
             - Broke the illusion of focusing solely on the user
             - Should instead simply incorporate the feedback into an improved answer
+            - The title inappropriately references the evaluator feedback
         </explanation>
     </example>
 
@@ -89,7 +93,10 @@
         
         <iteration_1>
             <answerer>
-                A good exercise routine includes cardio and strength training.
+                {
+                    "title": "General exercise recommendation",
+                    "content": "A good exercise routine includes cardio and strength training."
+                }
             </answerer>
             <evaluator>
                 Need to include specific examples, frequency recommendations, and safety precautions.
@@ -98,7 +105,10 @@
 
         <iteration_2>
             <answerer>
-                Exercise is important for health. You should do both cardio and strength training regularly.
+                {
+                    "title": "Exercise importance explanation",
+                    "content": "Exercise is important for health. You should do both cardio and strength training regularly."
+                }
             </answerer>
         </iteration_2>
         <explanation>
@@ -106,10 +116,16 @@
             - The answerer didn't incorporate the evaluator's feedback
             - The second response is still vague and lacks specific details
             - No improvement was made between iterations
+            - The title does not reflect any actual improvements
         </explanation>
     </example>
 </examples>
 
-<expected_output>
-    A plain text response with escapes for readability.
-</expected_output>
+<output_format>
+    {
+        "title": "One-line summary of the current iteration's change/improvement",
+        "content": "The full, detailed response to the user's question"
+    }
+</output_format>
+
+RETURN A JSON STRING AND ONLY A JSON STRING. DO NOT FORMAT WITH \n. DO NOT RETURN ANYTHING ELSE. DO NOT format with code blocks.

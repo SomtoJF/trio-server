@@ -21,6 +21,7 @@ type Reflection struct {
 type EvaluatorMessage struct {
 	IdEvaluatorMessage uint           `gorm:"primaryKey;column:id_evaluator_message;autoIncrement" json:"-"`
 	ExternalID         uuid.UUID      `gorm:"unique;type:uuid;default:gen_random_uuid()" json:"id"`
+	Title              string         `gorm:"column:title" json:"title"`
 	Content            string         `gorm:"column:content" json:"content"`
 	IsOptimal          bool           `gorm:"column:is_optimal" default:"false" json:"isOptimal"`
 	ReflectionID       uint           `gorm:"column:id_reflection"`

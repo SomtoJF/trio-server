@@ -40,7 +40,8 @@ type PreviousResponse struct {
 }
 
 type AnswererResponse struct {
-	Content string
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 type EvaluatorInfoBank struct {
@@ -48,6 +49,7 @@ type EvaluatorInfoBank struct {
 	ChatHistory       []HistoryMessage
 	Context           []HistoryMessage
 	Message           string
+	IterationCount    int
 	PreviousResponses []PreviousResponse
 	AnswererResponse  AnswererResponse
 }
@@ -90,21 +92,29 @@ func (r *Response) RunAnswerer(ctx context.Context, infoBank AnswererInfoBank, m
 	}
 
 	request := &aipitypes.AIPIRequest{
-		Model:         model,
-		SystemMessage: systemBuf.String(),
-		UserMessage:   userBuf.String(),
-		IdUser:        infoBank.IdUser,
+		Model:          model,
+		SystemMessage:  systemBuf.String(),
+		UserMessage:    userBuf.String(),
+		IdUser:         infoBank.IdUser,
+		ResponseFormat: aipitypes.AIPI_RESPONSE_FORMAT_JSON,
 	}
 	response, err := r.aipi.GetCompletion(ctx, *request)
 	if err != nil {
 		return AnswererResponse{}, err
 	}
 
-	return AnswererResponse{Content: response.Data}, nil
+	var answererResponse AnswererResponse
+	err = json.Unmarshal([]byte(response.Data), &answererResponse)
+	if err != nil {
+		log.Printf("Error unmarshalling answerer response: %v", err)
+		return AnswererResponse{}, fmt.Errorf("error unmarshalling answerer response: %w", err)
+	}
+
+	return answererResponse, nil
 }
 
 func (r *Response) RunEvaluator(ctx context.Context, infoBank EvaluatorInfoBank, model string) (EvaluatorResponse, error) {
-	systemTmpl, err := template.ParseFiles("controllers/reflection-chat/reflection-message/response/prompt/answerer/system/prompt.go.tmpl")
+	systemTmpl, err := template.ParseFiles("controllers/reflection-chat/reflection-message/response/prompt/evaluator/system/prompt.go.tmpl")
 	if err != nil {
 		log.Printf("Error parsing system template: %v", err)
 		return EvaluatorResponse{}, fmt.Errorf("error parsing system template: %w", err)
@@ -115,7 +125,7 @@ func (r *Response) RunEvaluator(ctx context.Context, infoBank EvaluatorInfoBank,
 		return EvaluatorResponse{}, fmt.Errorf("error executing system template: %w", err)
 	}
 
-	userTmpl, err := template.ParseFiles("controllers/reflection-chat/reflection-message/response/prompt/answerer/user/prompt.go.tmpl")
+	userTmpl, err := template.ParseFiles("controllers/reflection-chat/reflection-message/response/prompt/evaluator/user/prompt.go.tmpl")
 	if err != nil {
 		log.Printf("Error parsing user template: %v", err)
 		return EvaluatorResponse{}, fmt.Errorf("error parsing user template: %w", err)

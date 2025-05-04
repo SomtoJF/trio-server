@@ -9,15 +9,15 @@ run-server:
 	CompileDaemon -command="./trio-server" -exclude-dir="vendor"
 
 migrations:
-	$(MAKE) run-db-migrate && $(MAKE) swagger-migrate
+	$(MAKE) db-migrations && $(MAKE) swagger-migrate
 
-run-db-migrate:
-	$(MAKE) run-qdrant-migrate && $(MAKE) run-postgres-migrate
+storage-migration:
+	$(MAKE) qdrant-migration && $(MAKE) db-migration
 
-run-postgres-migrate:
+db-migration:
 	go run migrations/postgres/migration.go
 
-run-qdrant-migrate:
+qdrant-migration:
 	go run migrations/qdrant/migration.go
 
 swagger-migrate:

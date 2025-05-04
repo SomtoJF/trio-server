@@ -32,9 +32,9 @@ func NewEndpoint(db *gorm.DB, aipi *aipi.Provider, qdrantDB *qdrant.Client) *End
 }
 
 type SendReflectionMessageResponse struct {
-	Reflection models.Reflection `json:"reflection"`
-	Status     []string          `json:"status"`
-	Error      string            `json:"error"`
+	Reflection *models.Reflection `json:"reflection"`
+	Status     []string           `json:"status"`
+	Error      string             `json:"error"`
 }
 
 // type MessageData struct {
@@ -79,21 +79,13 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		}
 	}()
 
-	done := make(chan struct{})
-	defer close(done)
-
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 300*time.Second)
 	defer cancel()
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			if ctx.Err() == context.DeadlineExceeded {
-				e.streamError(c, "Request timeout exceeded")
-			}
-			done <- struct{}{}
-		case <-done:
-			return
+		<-ctx.Done()
+		if ctx.Err() == context.DeadlineExceeded {
+			e.streamError(c, "Request timeout exceeded")
 		}
 	}()
 
@@ -102,7 +94,6 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("Transfer-Encoding", "chunked")
 
-	// Ensure client connection is closed when the function returns
 	defer func() {
 		c.SSEvent("done", "done")
 		c.Writer.Flush()
@@ -140,8 +131,11 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		return
 	}
 
+	time.Sleep(1 * time.Second)
+
 	e.streamStatus(c, "Getting relevant context...")
 
+	time.Sleep(1 * time.Second)
 	// TODO: Uncomment this
 	// relevantContext, err := e.getRelevantContext(ctx, request.Message, chat.ExternalID, 10)
 	// if err != nil {
@@ -179,6 +173,8 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 	previousResponses := []response.PreviousResponse{}
 
 	for !optimalResponseGotten {
+		log.Printf("Iteration %d", numberOfIterations)
+
 		reflectionMessage := models.ReflectionMessage{
 			ReflectionID: reflection.IdReflection,
 			SenderName:   "Reflector",
@@ -205,7 +201,11 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 			PreviousResponses: previousResponses,
 		}
 
-		e.streamStatus(c, fmt.Sprintf("Generating response %d", numberOfIterations))
+		if numberOfIterations > 0 {
+			e.streamStatus(c, fmt.Sprintf("Improving on response %d", numberOfIterations))
+		} else {
+			e.streamStatus(c, fmt.Sprintf("Generating response %d", numberOfIterations+1))
+		}
 
 		answererResponse, err := responseGenerator.RunAnswerer(ctx, answererInfoBank, ANSWERER_MODEL)
 		if err != nil {
@@ -216,6 +216,7 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		}
 
 		reflectionMessage.Content = answererResponse.Content
+		reflectionMessage.Title = answererResponse.Title
 		if err := tx.Create(&reflectionMessage).Error; err != nil {
 			tx.Rollback()
 			log.Printf("Failed to create reflection message: %v", err)
@@ -224,25 +225,26 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 		}
 
 		// Reload reflection to get the latest messages
-		if err := e.refreshReflection(tx, &reflection).Error; err != nil {
+		if err := e.refreshReflection(tx, &reflection); err != nil {
 			tx.Rollback()
 			log.Printf("Failed to reload reflection: %v", err)
 			e.streamError(c, "An error occured while sending your message")
 			return
 		}
 
-		e.streamReflection(c, reflection)
+		e.streamReflection(c, &reflection)
 
 		evaluatorInfoBank := response.EvaluatorInfoBank{
 			IdUser:            chat.UserID,
 			ChatHistory:       chatHistory,
 			Context:           relevantContext,
 			Message:           request.Message,
+			IterationCount:    numberOfIterations + 1,
 			AnswererResponse:  answererResponse,
 			PreviousResponses: previousResponses,
 		}
 
-		e.streamStatus(c, fmt.Sprintf("Evaluating response %d", numberOfIterations))
+		e.streamStatus(c, fmt.Sprintf("Evaluating response %d", numberOfIterations+1))
 		evaluatorResponse, err := responseGenerator.RunEvaluator(ctx, evaluatorInfoBank, EVALUATOR_MODEL)
 		if err != nil {
 			tx.Rollback()
@@ -251,35 +253,76 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 			return
 		}
 
+		// Update previous responses
+		currentResponse := response.PreviousResponse{
+			AnswererResponse:  answererResponse,
+			EvaluatorResponse: evaluatorResponse,
+		}
+		previousResponses = append(previousResponses, currentResponse)
+
+		if numberOfIterations >= 5 {
+			optimalResponseGotten = true
+
+			evaluatorMessage.Content = evaluatorResponse.Content
+			evaluatorMessage.IsOptimal = true
+			if err := tx.Create(&evaluatorMessage).Error; err != nil {
+				tx.Rollback()
+				log.Printf("Failed to create evaluator message: %v", err)
+				e.streamError(c, "An error occured while sending your message")
+				return
+			}
+
+			if err := tx.Model(&reflectionMessage).Update("is_optimal", true).Error; err != nil {
+				tx.Rollback()
+				log.Printf("Failed to update reflection message optimal status: %v", err)
+				e.streamError(c, "An error occurred while sending your message")
+				return
+			}
+
+			// Reload reflection again to get the latest messages including evaluator message
+			if err := e.refreshReflection(tx, &reflection); err != nil {
+				tx.Rollback()
+				log.Printf("Failed to reload reflection: %v", err)
+				e.streamError(c, "An error occured while sending your message")
+				return
+			}
+
+			e.streamReflection(c, &reflection)
+			continue
+		} else {
+			optimalResponseGotten = evaluatorResponse.IsOptimal
+
+		}
+
 		evaluatorMessage.Content = evaluatorResponse.Content
 		evaluatorMessage.IsOptimal = evaluatorResponse.IsOptimal
 		if err := tx.Create(&evaluatorMessage).Error; err != nil {
 			tx.Rollback()
 			log.Printf("Failed to create evaluator message: %v", err)
 			e.streamError(c, "An error occured while sending your message")
+			return
+		}
+
+		if evaluatorMessage.IsOptimal {
+			if err := tx.Model(&reflectionMessage).Update("is_optimal", true).Error; err != nil {
+				tx.Rollback()
+				log.Printf("Failed to update reflection message optimal status: %v", err)
+				e.streamError(c, "An error occurred while sending your message")
+				return
+			}
 		}
 
 		// Reload reflection again to get the latest messages including evaluator message
-		if err := e.refreshReflection(tx, &reflection).Error; err != nil {
+		if err := e.refreshReflection(tx, &reflection); err != nil {
 			tx.Rollback()
 			log.Printf("Failed to reload reflection: %v", err)
 			e.streamError(c, "An error occured while sending your message")
 			return
 		}
 
-		e.streamReflection(c, reflection)
+		e.streamReflection(c, &reflection)
 
-		optimalResponseGotten = evaluatorResponse.IsOptimal
 		numberOfIterations += 1
-
-		currentResponse := response.PreviousResponse{
-			AnswererResponse:  answererResponse,
-			EvaluatorResponse: evaluatorResponse,
-		}
-
-		// Update previous responses
-		previousResponses = append(previousResponses, currentResponse)
-
 	}
 
 	// Save reflection messages to Qdrant
@@ -302,10 +345,8 @@ func (e *Endpoint) SendMessage(c *gin.Context) {
 }
 
 func (e *Endpoint) refreshReflection(tx *gorm.DB, reflection *models.Reflection) error {
-	if err := tx.Preload("Messages").Preload("EvaluatorMessages").First(reflection, reflection.IdReflection).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil
-		}
+	if err := tx.Preload("Messages").Preload("EvaluatorMessages").Where("id_reflection = ?", reflection.IdReflection).First(reflection).Error; err != nil {
+		log.Printf("Failed to load reflection with associations: %v", err)
 		return err
 	}
 
@@ -428,15 +469,13 @@ func (e *Endpoint) saveToQdrant(c context.Context, message models.ReflectionMess
 	return nil
 }
 
-func (e *Endpoint) streamReflection(c *gin.Context, reflection models.Reflection) {
+func (e *Endpoint) streamReflection(c *gin.Context, reflection *models.Reflection) {
 	e.streamOutput.Reflection = reflection
-
 	e.updateStream(c, *e.streamOutput)
 }
 
 func (e *Endpoint) streamStatus(c *gin.Context, status string) {
 	e.streamOutput.Status = append(e.streamOutput.Status, status)
-
 	e.updateStream(c, *e.streamOutput)
 }
 
