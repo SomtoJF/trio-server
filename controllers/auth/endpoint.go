@@ -84,7 +84,17 @@ func (e *Endpoint) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
 	}
 
-	c.SetCookie("Access_Token", token, 604800, "/", e.Domain, false, true)
+	cookie := http.Cookie{
+		Name:     "Access_Token",
+		Value:    token,
+		Path:     "/",
+		Domain:   e.Domain,
+		MaxAge:   604800,
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	}
+	http.SetCookie(c.Writer, &cookie)
 
 	c.JSON(200, gin.H{
 		"message": "success",
@@ -133,7 +143,17 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("Access_Token", token, 604800, "/", e.Domain, false, true)
+	cookie := http.Cookie{
+		Name:     "Access_Token",
+		Value:    token,
+		Path:     "/",
+		Domain:   e.Domain,
+		MaxAge:   604800,
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	}
+	http.SetCookie(c.Writer, &cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
