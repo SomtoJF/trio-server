@@ -1,6 +1,8 @@
 package initializers
 
 import (
+	"fmt"
+	"log"
 	"log/slog"
 	"os"
 
@@ -9,7 +11,7 @@ import (
 
 var QdrantClient *qdrant.Client
 
-func ConnectToQdrant() error {
+func ConnectToQdrant() {
 	var err error
 
 	QdrantClient, err = qdrant.NewClient(&qdrant.Config{
@@ -19,8 +21,7 @@ func ConnectToQdrant() error {
 	})
 	if err != nil {
 		slog.Error("Failed to connect to qdrant", "error", err)
-		return err
+		log.Fatal(fmt.Errorf("error connecting to qdrant: %w", err))
 	}
 	slog.Info("Successfully connected to qdrant")
-	return nil
 }

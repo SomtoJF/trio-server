@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/gin-contrib/cors"
@@ -21,12 +21,15 @@ import (
 )
 
 func init() {
-
+	log.Println("Initializing server...")
 	initializers.LoadEnvVariables()
 	initializers.ConnectToPostgresDB()
 	initializers.ConnectToQdrant()
 
-	googlegenai.CreateClient(context.Background())
+	if err := googlegenai.CreateClient(context.Background()); err != nil {
+		log.Fatal(fmt.Errorf("error creating google genai client: %w", err))
+	}
+	log.Println("Server initialized successfully")
 }
 
 func main() {
@@ -62,9 +65,7 @@ func main() {
 		public.POST("/signup", authEndpoint.Signup)
 		public.POST("/login/guest", authEndpoint.GuestLogin)
 
-		public.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "OK"})
-		})
+		public.GET("/health", healthEndpoint.HealthCheck)
 	}
 
 	authenticated := r.Group("/")
@@ -74,11 +75,6 @@ func main() {
 		authenticated.POST("/reset-password", authEndpoint.ResetPassword)
 		authenticated.GET("/completions", authEndpoint.GetCurrentUser)
 		authenticated.GET("/me", authEndpoint.GetCurrentUser)
-
-		health := authenticated.Group("/health")
-		{
-			health.GET("/", healthEndpoint.HealthCheck)
-		}
 
 		reflectionChats := authenticated.Group("/reflection-chats")
 		{
