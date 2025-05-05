@@ -63,8 +63,8 @@ type SendMessageRequest struct {
 }
 
 const EMBEDDING_MODEL = string(openai.SmallEmbedding3)
-const ANSWERER_MODEL = string(openai.GPT4oMini)
-const EVALUATOR_MODEL = string(openai.GPT4oMini)
+const ANSWERER_MODEL = "gpt-4.1-nano-2025-04-14"
+const EVALUATOR_MODEL = "gpt-4.1-nano-2025-04-14"
 const MAX_MESSAGE_LENGTH = 400
 
 func (e *Endpoint) SendMessage(c *gin.Context) {

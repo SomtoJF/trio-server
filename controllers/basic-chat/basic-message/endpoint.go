@@ -64,7 +64,7 @@ func NewEndpoint(db *gorm.DB, aipi *aipi.Provider, qdrantDB *qdrant.Client) *End
 }
 
 const EMBEDDING_MODEL = string(openai.SmallEmbedding3)
-const RESPONSE_MODEL = string(openai.GPT4oMini)
+const RESPONSE_MODEL = "gpt-4.1-nano-2025-04-14"
 const MAX_MESSAGE_LENGTH = 400
 const HISTORYLIMIT = 10
 
