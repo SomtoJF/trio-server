@@ -86,7 +86,7 @@ func (e *Endpoint) Login(c *gin.Context) {
 	}
 
 	var secure bool
-	if strings.Contains(e.Domain, "http://localhost") {
+	if !strings.Contains(e.Domain, "http://localhost") {
 		secure = true
 	}
 
@@ -150,7 +150,7 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 	}
 
 	var secure bool
-	if strings.Contains(e.Domain, "http://localhost") {
+	if !strings.Contains(e.Domain, "http://localhost") {
 		secure = true
 	}
 
