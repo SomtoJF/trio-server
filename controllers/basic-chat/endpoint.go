@@ -14,17 +14,17 @@ type Endpoint struct {
 }
 
 type CreateAgentRequest struct {
-	AgentName   string   `json:"agentName" binding:"required,max=20"`
+	AgentName   string   `json:"agentName" binding:"required,max=50"`
 	AgentTraits []string `json:"agentTraits" binding:"required"`
 }
 
 type CreateBasicChatRequest struct {
-	ChatName string               `json:"chatName" binding:"required,max=20"`
+	ChatName string               `json:"chatName" binding:"required,max=100"`
 	Agents   []CreateAgentRequest `json:"agents"`
 }
 
 type UpdateBasicChatRequest struct {
-	ChatName string               `json:"chatName" binding:"required,max=20"`
+	ChatName string               `json:"chatName" binding:"required,max=100"`
 	Agents   []CreateAgentRequest `json:"agents"`
 }
 
