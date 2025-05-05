@@ -15,11 +15,12 @@ import (
 )
 
 type Endpoint struct {
-	DB *gorm.DB
+	DB     *gorm.DB
+	Domain string
 }
 
-func NewEndpoint(db *gorm.DB) *Endpoint {
-	return &Endpoint{DB: db}
+func NewEndpoint(db *gorm.DB, domain string) *Endpoint {
+	return &Endpoint{DB: db, Domain: domain}
 }
 
 type signUpInput struct {
@@ -51,7 +52,6 @@ type passwordResetRequest struct {
 //	@Failure		500			{object}	map[string]interface{}	"internal server error"
 //	@Router			/login [post]
 func (e *Endpoint) Login(c *gin.Context) {
-	domain := os.Getenv("DOMAIN")
 	var body loginInput
 
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -84,7 +84,7 @@ func (e *Endpoint) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
 	}
 
-	c.SetCookie("Access_Token", token, 604800, "/", domain, false, true)
+	c.SetCookie("Access_Token", token, 604800, "/", e.Domain, false, true)
 
 	c.JSON(200, gin.H{
 		"message": "success",
@@ -101,7 +101,6 @@ func (e *Endpoint) Login(c *gin.Context) {
 //	@Failure		500	{object}	map[string]interface{}	"Internal server error"
 //	@Router			/guest-login [post]
 func (e *Endpoint) GuestLogin(c *gin.Context) {
-	domain := os.Getenv("DOMAIN")
 	guestId, err := nanoid.Generate(nanoid.DefaultAlphabet, 6)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
@@ -134,7 +133,7 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("Access_Token", token, 604800, "/", domain, false, true)
+	c.SetCookie("Access_Token", token, 604800, "/", e.Domain, false, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
@@ -198,7 +197,7 @@ func (e *Endpoint) Signup(c *gin.Context) {
 //	@Success		200	{object}	map[string]interface{}	"Logout successful"
 //	@Router			/logout [post]
 func (e *Endpoint) Logout(c *gin.Context) {
-	c.SetCookie("Access_Token", "", -1, "/", os.Getenv("DOMAIN"), false, true)
+	c.SetCookie("Access_Token", "", -1, "/", e.Domain, false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
 
@@ -250,7 +249,7 @@ func (e *Endpoint) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("Access_Token", "", -1, "/", os.Getenv("DOMAIN"), false, true)
+	c.SetCookie("Access_Token", "", -1, "/", e.Domain, false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully. Please login with new password"})
 }
 

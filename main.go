@@ -37,7 +37,7 @@ func main() {
 	clientAddress := os.Getenv("CLIENT_ADDRESS")
 
 	authCheckMiddleware := authcheck.NewMiddleware(initializers.DB)
-	authEndpoint := auth.NewEndpoint(initializers.DB)
+	authEndpoint := auth.NewEndpoint(initializers.DB, clientAddress)
 	basicChatEndpoint := basicchat.NewEndpoint(initializers.DB)
 	reflectionChatEndpoint := reflectionchat.NewEndpoint(initializers.DB)
 
