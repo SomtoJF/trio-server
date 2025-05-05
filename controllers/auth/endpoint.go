@@ -179,7 +179,10 @@ func (e *Endpoint) Signup(c *gin.Context) {
 		PasswordHash: string(passwordHash),
 	}
 
-	e.DB.Create(&user)
+	if err := e.DB.Create(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("error creating user: %s", err)})
+		return
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "account created successfully",
