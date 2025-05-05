@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aidarkhanov/nanoid"
@@ -84,13 +85,18 @@ func (e *Endpoint) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured"})
 	}
 
+	var secure bool
+	if strings.Contains(e.Domain, "http://localhost") {
+		secure = true
+	}
+
 	cookie := http.Cookie{
 		Name:     "Access_Token",
 		Value:    token,
 		Path:     "/",
 		Domain:   e.Domain,
 		MaxAge:   604800,
-		Secure:   false,
+		Secure:   secure,
 		HttpOnly: true,
 		SameSite: http.SameSiteNoneMode,
 	}
@@ -143,13 +149,18 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 		return
 	}
 
+	var secure bool
+	if strings.Contains(e.Domain, "http://localhost") {
+		secure = true
+	}
+
 	cookie := http.Cookie{
 		Name:     "Access_Token",
 		Value:    token,
 		Path:     "/",
 		Domain:   e.Domain,
 		MaxAge:   604800,
-		Secure:   false,
+		Secure:   secure,
 		HttpOnly: true,
 		SameSite: http.SameSiteNoneMode,
 	}
