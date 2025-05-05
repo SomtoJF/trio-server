@@ -104,5 +104,13 @@ func main() {
 
 	}
 
-	r.Run() // listen and serve on 0.0.0.0:4000
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Starting server on port %s", port)
+	if err := r.Run(":" + port); err != nil {
+		log.Panicf("error: %s", err)
+	}
 }
