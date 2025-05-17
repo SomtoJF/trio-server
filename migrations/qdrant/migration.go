@@ -27,7 +27,6 @@ func createQdrantCollections(client *qdrant.Client) error {
 	ctx := context.Background()
 	collections := []qdranttypes.CollectionName{
 		qdranttypes.COLLECTION_NAME_BASIC_MESSAGES,
-		qdranttypes.COLLECTION_NAME_REFLECTION_MESSAGES,
 	}
 
 	for _, collection := range collections {
@@ -37,11 +36,15 @@ func createQdrantCollections(client *qdrant.Client) error {
 		}
 
 		if exists {
-			slog.Info("Collection already exists, skipping", "collection", collection)
-			continue // Skip to next collection instead of returning
+			// Delete existing collection to recreate with proper indexes
+			err = client.DeleteCollection(ctx, string(collection))
+			if err != nil {
+				return fmt.Errorf("error deleting collection %s: %w", collection, err)
+			}
+			slog.Info("Deleted existing collection", "collection", collection)
 		}
 
-		// Collection doesn't exist, create it with configuration
+		// Create collection with configuration
 		var indexingThreshold uint64
 		indexingThreshold = 20000
 
@@ -51,7 +54,6 @@ func createQdrantCollections(client *qdrant.Client) error {
 				Size:     uint64(qdranttypes.VECTOR_SIZE_BASIC_MESSAGE),
 				Distance: qdrant.Distance_Cosine,
 			}),
-			// Add optional but recommended configurations
 			OptimizersConfig: &qdrant.OptimizersConfigDiff{
 				IndexingThreshold: &indexingThreshold,
 			},
@@ -67,25 +69,31 @@ func createQdrantCollections(client *qdrant.Client) error {
 			return fmt.Errorf("error creating indexes for collection %s: %w", collection, err)
 		}
 
-		slog.Info("Successfully created collection", "collection", collection)
+		slog.Info("Successfully created collection with indexes", "collection", collection)
 	}
 
 	return nil
 }
 
 func createIndexes(ctx context.Context, client *qdrant.Client, collection qdranttypes.CollectionName) error {
-	// Create payload indexes for common search fields
-	indexesToCreate := []string{"content", "chat_id", "external_id"}
+	// Define field types for different fields
+	fieldConfigs := map[string]*qdrant.FieldType{
+		"content":     qdrant.FieldType_FieldTypeText.Enum(),
+		"chat_id":     qdrant.FieldType_FieldTypeKeyword.Enum(),
+		"external_id": qdrant.FieldType_FieldTypeKeyword.Enum(),
+	}
 
-	for _, field := range indexesToCreate {
+	// Create payload indexes for common search fields
+	for field, fieldType := range fieldConfigs {
 		_, err := client.CreateFieldIndex(ctx, &qdrant.CreateFieldIndexCollection{
 			CollectionName: string(collection),
 			FieldName:      field,
-			FieldType:      qdrant.FieldType_FieldTypeText.Enum(),
+			FieldType:      fieldType,
 		})
 		if err != nil {
 			return fmt.Errorf("error creating index for %s: %w", field, err)
 		}
+		slog.Info("Created index", "field", field, "type", fieldType)
 	}
 
 	return nil
