@@ -18,6 +18,7 @@ func ConnectToQdrant() {
 		Host:   os.Getenv("QDRANT_HOST"),
 		Port:   6334,
 		APIKey: os.Getenv("QDRANT_DB_API_KEY"),
+		UseTLS: true,
 	})
 	if err != nil {
 		slog.Error("Failed to connect to qdrant", "error", err)
