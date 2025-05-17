@@ -231,18 +231,22 @@ func (e *Endpoint) Signup(c *gin.Context) {
 //	@Router			/logout [post]
 func (e *Endpoint) Logout(c *gin.Context) {
 	// Set cookie with all parameters to ensure proper deletion
-	c.SetCookie(
-		"Access_Token", // name
-		"",             // value
-		-1,             // maxAge
-		"/",            // path
-		e.Domain,       // domain
-		true,           // secure - set to true for HTTPS
-		true,           // httpOnly
-	)
-
-	// Also try clearing with minimal params as fallback
-	c.SetCookie("Access_Token", "", -1, "/", "", false, true)
+	var secure bool
+	sameSite := http.SameSiteDefaultMode
+	if !strings.Contains(e.Domain, "http://localhost") {
+		secure = true
+		sameSite = http.SameSiteNoneMode
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "Access_Token",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		Domain:   e.Domain,
+		Secure:   secure,
+		HttpOnly: true,
+		SameSite: sameSite,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
