@@ -230,7 +230,20 @@ func (e *Endpoint) Signup(c *gin.Context) {
 //	@Success		200	{object}	map[string]interface{}	"Logout successful"
 //	@Router			/logout [post]
 func (e *Endpoint) Logout(c *gin.Context) {
-	c.SetCookie("Access_Token", "", -1, "/", e.Domain, false, true)
+	// Set cookie with all parameters to ensure proper deletion
+	c.SetCookie(
+		"Access_Token", // name
+		"",             // value
+		-1,             // maxAge
+		"/",            // path
+		e.Domain,       // domain
+		true,           // secure - set to true for HTTPS
+		true,           // httpOnly
+	)
+
+	// Also try clearing with minimal params as fallback
+	c.SetCookie("Access_Token", "", -1, "/", "", false, true)
+
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
 
