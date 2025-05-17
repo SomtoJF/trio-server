@@ -150,8 +150,10 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 	}
 
 	var secure bool
+	sameSite := http.SameSiteDefaultMode
 	if !strings.Contains(e.Domain, "http://localhost") {
 		secure = true
+		sameSite = http.SameSiteNoneMode
 	}
 
 	cookie := http.Cookie{
@@ -162,7 +164,7 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 		MaxAge:   604800,
 		Secure:   secure,
 		HttpOnly: true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: sameSite,
 	}
 	http.SetCookie(c.Writer, &cookie)
 
