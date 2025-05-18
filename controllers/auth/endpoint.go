@@ -87,7 +87,13 @@ func (e *Endpoint) Login(c *gin.Context) {
 
 	var secure bool
 	sameSite := http.SameSiteDefaultMode
-	if !strings.Contains(e.Domain, "http://localhost") {
+	domain := e.Domain
+
+	// Strip any protocol prefix from domain
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
+
+	if !strings.Contains(domain, "localhost") {
 		secure = true
 		sameSite = http.SameSiteNoneMode
 	}
@@ -96,7 +102,7 @@ func (e *Endpoint) Login(c *gin.Context) {
 		Name:     "Access_Token",
 		Value:    token,
 		Path:     "/",
-		Domain:   e.Domain,
+		Domain:   domain,
 		MaxAge:   604800,
 		Secure:   secure,
 		HttpOnly: true,
@@ -153,7 +159,13 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 
 	var secure bool
 	sameSite := http.SameSiteDefaultMode
-	if !strings.Contains(e.Domain, "http://localhost") {
+	domain := e.Domain
+
+	// Strip any protocol prefix from domain
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
+
+	if !strings.Contains(domain, "localhost") {
 		secure = true
 		sameSite = http.SameSiteNoneMode
 	}
@@ -162,7 +174,7 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 		Name:     "Access_Token",
 		Value:    token,
 		Path:     "/",
-		Domain:   e.Domain,
+		Domain:   domain,
 		MaxAge:   604800,
 		Secure:   secure,
 		HttpOnly: true,
@@ -235,7 +247,13 @@ func (e *Endpoint) Logout(c *gin.Context) {
 	// Set cookie with all parameters to ensure proper deletion
 	var secure bool
 	sameSite := http.SameSiteDefaultMode
-	if !strings.Contains(e.Domain, "http://localhost") {
+	domain := e.Domain
+
+	// Strip any protocol prefix from domain
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
+
+	if !strings.Contains(domain, "localhost") {
 		secure = true
 		sameSite = http.SameSiteNoneMode
 	}
@@ -244,7 +262,7 @@ func (e *Endpoint) Logout(c *gin.Context) {
 		Value:    "",
 		MaxAge:   -1,
 		Path:     "/",
-		Domain:   e.Domain,
+		Domain:   domain,
 		Secure:   secure,
 		HttpOnly: true,
 		SameSite: sameSite,
