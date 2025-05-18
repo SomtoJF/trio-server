@@ -94,8 +94,20 @@ func (e *Endpoint) Login(c *gin.Context) {
 		sameSite = http.SameSiteNoneMode
 	}
 
-	c.SetSameSite(sameSite)
-	c.SetCookie("Access_Token", token, 604800, "/", domain, secure, true)
+	// For debugging
+	fmt.Printf("Setting cookie with domain: %s, secure: %v, sameSite: %v\n", domain, secure, sameSite)
+
+	cookie := &http.Cookie{
+		Name:     "Access_Token",
+		Value:    token,
+		Path:     "/",
+		Domain:   domain,
+		MaxAge:   604800,
+		Secure:   secure,
+		HttpOnly: true,
+		SameSite: sameSite,
+	}
+	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(200, gin.H{
 		"message": "success",
@@ -153,8 +165,20 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 		sameSite = http.SameSiteNoneMode
 	}
 
-	c.SetSameSite(sameSite)
-	c.SetCookie("Access_Token", token, 604800, "/", domain, secure, true)
+	// For debugging
+	fmt.Printf("Setting cookie with domain: %s, secure: %v, sameSite: %v\n", domain, secure, sameSite)
+
+	cookie := &http.Cookie{
+		Name:     "Access_Token",
+		Value:    token,
+		Path:     "/",
+		Domain:   domain,
+		MaxAge:   604800,
+		Secure:   secure,
+		HttpOnly: true,
+		SameSite: sameSite,
+	}
+	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
@@ -228,8 +252,17 @@ func (e *Endpoint) Logout(c *gin.Context) {
 		sameSite = http.SameSiteNoneMode
 	}
 
-	c.SetSameSite(sameSite)
-	c.SetCookie("Access_Token", "", -1, "/", domain, secure, true)
+	cookie := &http.Cookie{
+		Name:     "Access_Token",
+		Value:    "",
+		Path:     "/",
+		Domain:   domain,
+		MaxAge:   -1,
+		Secure:   secure,
+		HttpOnly: true,
+		SameSite: sameSite,
+	}
+	http.SetCookie(c.Writer, cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
