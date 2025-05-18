@@ -160,7 +160,7 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 	}
 
 	var secure bool
-	sameSite := http.SameSiteDefaultMode
+	// sameSite := http.SameSiteDefaultMode
 	domain := e.Domain
 
 	// Strip any protocol prefix from domain
@@ -169,20 +169,22 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 
 	if !strings.Contains(domain, "localhost") {
 		secure = true
-		sameSite = http.SameSiteNoneMode
+		// sameSite = http.SameSiteNoneMode
 	}
 
-	cookie := http.Cookie{
-		Name:     "Access_Token",
-		Value:    token,
-		Path:     "/",
-		Domain:   domain,
-		MaxAge:   604800,
-		Secure:   secure,
-		HttpOnly: true,
-		SameSite: sameSite,
-	}
-	http.SetCookie(c.Writer, &cookie)
+	c.SetCookie("Access_Token", token, 604800, "/", domain, secure, true)
+
+	// cookie := http.Cookie{
+	// 	Name:     "Access_Token",
+	// 	Value:    token,
+	// 	Path:     "/",
+	// 	Domain:   domain,
+	// 	MaxAge:   604800,
+	// 	Secure:   secure,
+	// 	HttpOnly: true,
+	// 	SameSite: sameSite,
+	// }
+	// http.SetCookie(c.Writer, &cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
@@ -248,7 +250,7 @@ func (e *Endpoint) Signup(c *gin.Context) {
 func (e *Endpoint) Logout(c *gin.Context) {
 	// Set cookie with all parameters to ensure proper deletion
 	var secure bool
-	sameSite := http.SameSiteDefaultMode
+	// sameSite := http.SameSiteDefaultMode
 	domain := e.Domain
 
 	// Strip any protocol prefix from domain
@@ -257,18 +259,20 @@ func (e *Endpoint) Logout(c *gin.Context) {
 
 	if !strings.Contains(domain, "localhost") {
 		secure = true
-		sameSite = http.SameSiteNoneMode
+		// sameSite = http.SameSiteNoneMode
 	}
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "Access_Token",
-		Value:    "",
-		MaxAge:   -1,
-		Path:     "/",
-		Domain:   domain,
-		Secure:   secure,
-		HttpOnly: true,
-		SameSite: sameSite,
-	})
+
+	c.SetCookie("Access_Token", "", -1, "/", domain, secure, true)
+	// http.SetCookie(c.Writer, &http.Cookie{
+	// 	Name:     "Access_Token",
+	// 	Value:    "",
+	// 	MaxAge:   -1,
+	// 	Path:     "/",
+	// 	Domain:   domain,
+	// 	Secure:   secure,
+	// 	HttpOnly: true,
+	// 	SameSite: sameSite,
+	// })
 
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
@@ -321,7 +325,13 @@ func (e *Endpoint) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("Access_Token", "", -1, "/", e.Domain, false, true)
+	var secure bool
+	domain := e.Domain
+
+	// Strip any protocol prefix from domain
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "https://")
+	c.SetCookie("Access_Token", "", -1, "/", domain, secure, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully. Please login with new password"})
 }
 
