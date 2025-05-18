@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -36,8 +37,11 @@ func main() {
 	r := gin.Default()
 	clientAddress := os.Getenv("CLIENT_ADDRESS")
 
+	clientDomain := strings.TrimPrefix(clientAddress, "http://")
+	clientDomain = strings.TrimPrefix(clientDomain, "https://")
+
 	authCheckMiddleware := authcheck.NewMiddleware(initializers.DB)
-	authEndpoint := auth.NewEndpoint(initializers.DB, clientAddress)
+	authEndpoint := auth.NewEndpoint(initializers.DB, clientDomain)
 	basicChatEndpoint := basicchat.NewEndpoint(initializers.DB)
 	reflectionChatEndpoint := reflectionchat.NewEndpoint(initializers.DB)
 

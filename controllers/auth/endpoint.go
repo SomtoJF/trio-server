@@ -86,31 +86,16 @@ func (e *Endpoint) Login(c *gin.Context) {
 	}
 
 	var secure bool
-	// sameSite := http.SameSiteDefaultMode
+	sameSite := http.SameSiteDefaultMode
 	domain := e.Domain
-
-	// Strip any protocol prefix from domain
-	domain = strings.TrimPrefix(domain, "http://")
-	domain = strings.TrimPrefix(domain, "https://")
 
 	if !strings.Contains(domain, "localhost") {
 		secure = true
-		// sameSite = http.SameSiteNoneMode
+		sameSite = http.SameSiteNoneMode
 	}
 
+	c.SetSameSite(sameSite)
 	c.SetCookie("Access_Token", token, 604800, "/", domain, secure, true)
-
-	// cookie := http.Cookie{
-	// 	Name:     "Access_Token",
-	// 	Value:    token,
-	// 	Path:     "/",
-	// 	Domain:   domain,
-	// 	MaxAge:   604800,
-	// 	Secure:   secure,
-	// 	HttpOnly: true,
-	// 	SameSite: sameSite,
-	// }
-	// http.SetCookie(c.Writer, &cookie)
 
 	c.JSON(200, gin.H{
 		"message": "success",
@@ -160,31 +145,16 @@ func (e *Endpoint) GuestLogin(c *gin.Context) {
 	}
 
 	var secure bool
-	// sameSite := http.SameSiteDefaultMode
+	sameSite := http.SameSiteDefaultMode
 	domain := e.Domain
-
-	// Strip any protocol prefix from domain
-	domain = strings.TrimPrefix(domain, "http://")
-	domain = strings.TrimPrefix(domain, "https://")
 
 	if !strings.Contains(domain, "localhost") {
 		secure = true
-		// sameSite = http.SameSiteNoneMode
+		sameSite = http.SameSiteNoneMode
 	}
 
+	c.SetSameSite(sameSite)
 	c.SetCookie("Access_Token", token, 604800, "/", domain, secure, true)
-
-	// cookie := http.Cookie{
-	// 	Name:     "Access_Token",
-	// 	Value:    token,
-	// 	Path:     "/",
-	// 	Domain:   domain,
-	// 	MaxAge:   604800,
-	// 	Secure:   secure,
-	// 	HttpOnly: true,
-	// 	SameSite: sameSite,
-	// }
-	// http.SetCookie(c.Writer, &cookie)
 
 	c.JSON(http.StatusOK, gin.H{"message": "success"})
 }
@@ -250,29 +220,16 @@ func (e *Endpoint) Signup(c *gin.Context) {
 func (e *Endpoint) Logout(c *gin.Context) {
 	// Set cookie with all parameters to ensure proper deletion
 	var secure bool
-	// sameSite := http.SameSiteDefaultMode
+	sameSite := http.SameSiteDefaultMode
 	domain := e.Domain
-
-	// Strip any protocol prefix from domain
-	domain = strings.TrimPrefix(domain, "http://")
-	domain = strings.TrimPrefix(domain, "https://")
 
 	if !strings.Contains(domain, "localhost") {
 		secure = true
-		// sameSite = http.SameSiteNoneMode
+		sameSite = http.SameSiteNoneMode
 	}
 
+	c.SetSameSite(sameSite)
 	c.SetCookie("Access_Token", "", -1, "/", domain, secure, true)
-	// http.SetCookie(c.Writer, &http.Cookie{
-	// 	Name:     "Access_Token",
-	// 	Value:    "",
-	// 	MaxAge:   -1,
-	// 	Path:     "/",
-	// 	Domain:   domain,
-	// 	Secure:   secure,
-	// 	HttpOnly: true,
-	// 	SameSite: sameSite,
-	// })
 
 	c.JSON(http.StatusOK, gin.H{"message": "logout successful"})
 }
