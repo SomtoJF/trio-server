@@ -86,7 +86,7 @@ func (e *Endpoint) Login(c *gin.Context) {
 	}
 
 	var secure bool
-	sameSite := http.SameSiteDefaultMode
+	// sameSite := http.SameSiteDefaultMode
 	domain := e.Domain
 
 	// Strip any protocol prefix from domain
@@ -95,20 +95,22 @@ func (e *Endpoint) Login(c *gin.Context) {
 
 	if !strings.Contains(domain, "localhost") {
 		secure = true
-		sameSite = http.SameSiteNoneMode
+		// sameSite = http.SameSiteNoneMode
 	}
 
-	cookie := http.Cookie{
-		Name:     "Access_Token",
-		Value:    token,
-		Path:     "/",
-		Domain:   domain,
-		MaxAge:   604800,
-		Secure:   secure,
-		HttpOnly: true,
-		SameSite: sameSite,
-	}
-	http.SetCookie(c.Writer, &cookie)
+	c.SetCookie("Access_Token", token, 604800, "/", domain, secure, true)
+
+	// cookie := http.Cookie{
+	// 	Name:     "Access_Token",
+	// 	Value:    token,
+	// 	Path:     "/",
+	// 	Domain:   domain,
+	// 	MaxAge:   604800,
+	// 	Secure:   secure,
+	// 	HttpOnly: true,
+	// 	SameSite: sameSite,
+	// }
+	// http.SetCookie(c.Writer, &cookie)
 
 	c.JSON(200, gin.H{
 		"message": "success",
